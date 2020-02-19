@@ -46,14 +46,12 @@ namespace ARGLINK_REWRITE
             }
 
             //SOB files, Step 1 & 2 - input all data and list all links
-            List<LinkData> link = new List<LinkData>();
-            int SOBInput = args.Length - 1;
-            long[] startLink = new long[SOBInput];
+            var link = new List<LinkData>();
+            var SOBInput = args.Length - 1;
+            var startLink = new long[SOBInput];
 
             for (int idx = 0; idx < SOBInput; idx++)
             {
-                //Check if SOB file is indeed a SOB file
-                int count = 0;
                 FileSOB = new BinaryReader(File.OpenRead(args[idx + 1]));
                 Console.WriteLine("Open " + args[idx + 1]);
                 FileSOB.BaseStream.Seek(0, SeekOrigin.Begin);
@@ -64,7 +62,8 @@ namespace ARGLINK_REWRITE
                 {
                     FileSOB.ReadByte();
                     FileSOB.ReadByte();
-                    count = FileSOB.ReadByte();
+                    //Check if SOB file is indeed a SOB file
+                    int count = FileSOB.ReadByte();
                     FileSOB.ReadByte();
 
                     for (int i = 0; i < count; i++)
@@ -76,7 +75,7 @@ namespace ARGLINK_REWRITE
                         int type = FileSOB.ReadByte();
 
                         Console.WriteLine(i.ToString("X") + ": 0x" + start.ToString("X") + "  /// Size: 0x" + size.ToString("X") + " / Offset 0x" + offset.ToString("X") + " / Type " + type.ToString("X"));
-                        byte[] buffer = new byte[size];
+                        var buffer = new byte[size];
 
                         if (type == 0)
                         {
@@ -92,8 +91,8 @@ namespace ARGLINK_REWRITE
                             FileSOB.ReadByte();
 
                             //Get filepath
-                            List<char> filepath = new List<char>();
-                            char check = 'A';
+                            var filepath = new List<char>();
+                            var check = 'A';
                             while (check != 0)
                             {
                                 check = FileSOB.ReadChar();
@@ -101,9 +100,11 @@ namespace ARGLINK_REWRITE
                                     filepath.Add(check);
                             }
 
-                            Console.WriteLine("--Open External File: " + String.Concat(filepath));
+                            var fullFilepath = string.Concat(filepath);
 
-                            FileExt = new BinaryReader(File.OpenRead(String.Concat(filepath)));
+                            Console.WriteLine("--Open External File: " + fullFilepath);
+
+                            FileExt = new BinaryReader(File.OpenRead(fullFilepath));
                             FileExt.Read(buffer, 0, size);
                             FileOut.Seek(offset, SeekOrigin.Begin);
                             FileOut.Write(buffer, 0, size);
@@ -113,16 +114,17 @@ namespace ARGLINK_REWRITE
                         else
                         {
                             //Unknown, shouldn't happen
+                            Console.WriteLine($"ERROR (type is {type} - it should only ever be 0 or 1)");
                         }
                     }
 
                     //Step 2 - Get all extern names and values
                     do
                     {
-                        LinkData linktemp = new LinkData();
+                        var linktemp = new LinkData();
 
-                        List<char> nametemp = new List<char>();
-                        char check = 'A';
+                        var nametemp = new List<char>();
+                        var check = 'A';
                         while (check != 0)
                         {
                             check = FileSOB.ReadChar();
@@ -135,7 +137,7 @@ namespace ARGLINK_REWRITE
                             break;
                         }
 
-                        linktemp.name = String.Concat(nametemp);
+                        linktemp.name = string.Concat(nametemp);
                         linktemp.value = FileSOB.ReadUInt16() | (FileSOB.ReadByte() << 16);
                         Console.WriteLine("--" + linktemp.name + " : " + linktemp.value.ToString("X"));
                         link.Add(linktemp);
@@ -168,8 +170,8 @@ namespace ARGLINK_REWRITE
                             //FileSOB.BaseStream.Seek(-1, SeekOrigin.Current);
                             Console.WriteLine("-" + FileSOB.BaseStream.Position.ToString("X"));
                             //Get name
-                            List<char> nametemp = new List<char>();
-                            char check = 'A';
+                            var nametemp = new List<char>();
+                            var check = 'A';
                             while (check != 0)
                             {
                                 check = FileSOB.ReadChar();
@@ -177,24 +179,25 @@ namespace ARGLINK_REWRITE
                                     nametemp.Add(check);
                             }
 
-                            string name = String.Concat(nametemp);
-                            string prevname = "";
+                            var name = string.Concat(nametemp);
 
                             //search
-                            int name_id = -1;
-                            int prevname_id = -1;
+                            var name_id = -1;
                             for (int i = 0; i < link.Count; i++)
                             {
                                 if (link[i].name.Equals(name))
                                     name_id = i;
                             }
 
-                            List<Calculation> linkcalc = new List<Calculation>();
-                            Calculation calctemp = new Calculation();
-                            calctemp.deep = -1;
-                            calctemp.priority = 0;
-                            calctemp.operation = 0;
-                            calctemp.value = link[name_id].value;
+                            var linkcalc = new List<Calculation>();
+                            var calctemp = new Calculation
+                            {
+                                deep = -1,
+                                priority = 0,
+                                operation = 0,
+                                value = link[name_id].value
+                            };
+
                             linkcalc.Add(calctemp);
 
                             Console.WriteLine("--" + name + " : " + link[name_id].value.ToString("X"));
@@ -202,9 +205,6 @@ namespace ARGLINK_REWRITE
                             if (FileSOB.ReadByte() != 0)
                             {
                                 FileSOB.BaseStream.Seek(-1, SeekOrigin.Current);
-
-                                prevname = name;
-                                prevname_id = name_id;
 
                                 nametemp = new List<char>();
                                 check = 'A';
@@ -215,7 +215,7 @@ namespace ARGLINK_REWRITE
                                         nametemp.Add(check);
                                 }
 
-                                name = String.Concat(nametemp);
+                                name = string.Concat(nametemp);
 
                                 for (int i = 0; i < link.Count; i++)
                                 {
@@ -231,15 +231,18 @@ namespace ARGLINK_REWRITE
                             FileSOB.ReadInt32();
 
                             //List all operations
-                            byte calccheck1 = FileSOB.ReadByte();
-                            byte calccheck2 = FileSOB.ReadByte();
+                            var calccheck1 = FileSOB.ReadByte();
+                            var calccheck2 = FileSOB.ReadByte();
                             while (calccheck1 != 0 && calccheck2 != 0)
                             {
-                                calctemp = new Calculation();
-                                calctemp.deep = (calccheck1 & 0x70) >> 4;
-                                calctemp.priority = (calccheck1 & 0x3);
-                                calctemp.operation = calccheck2;
-                                calctemp.value = FileSOB.ReadInt32();
+                                calctemp = new Calculation
+                                {
+                                    deep = (calccheck1 & 0x70) >> 4,
+                                    priority = (calccheck1 & 0x3),
+                                    operation = calccheck2,
+                                    value = FileSOB.ReadInt32()
+                                };
+
                                 if (calccheck1 > 0x80)
                                     calctemp.value = link[name_id].value;
 
@@ -252,8 +255,8 @@ namespace ARGLINK_REWRITE
                             while (linkcalc.Count > 1)
                             {
                                 //Check for highest deep
-                                int highestdeep = -1;
-                                int highestdeepidx = -1;
+                                var highestdeep = -1;
+                                var highestdeepidx = -1;
                                 for (int i = 1; i < linkcalc.Count; i++)
                                 {
                                     //Get the first highest one
@@ -265,8 +268,8 @@ namespace ARGLINK_REWRITE
                                 }
 
                                 //Check for highest priority
-                                int highestpri = -1;
-                                int highestpriidx = -1;
+                                var highestpri = -1;
+                                var highestpriidx = -1;
                                 for (int i = highestdeepidx; i < linkcalc.Count; i++)
                                 {
                                     //Get the first highest one
@@ -280,7 +283,7 @@ namespace ARGLINK_REWRITE
                                 }
 
                                 //Check for latest deep
-                                int calcidx = -1;
+                                var calcidx = -1;
                                 for (int i = highestpriidx; i >= 0; i--)
                                 {
                                     //Get the first one that comes
@@ -336,7 +339,7 @@ namespace ARGLINK_REWRITE
                             }
 
                             //And then put the data in
-                            int offset = FileSOB.ReadInt32();
+                            var offset = FileSOB.ReadInt32();
                             FileOut.Seek(offset + 1, SeekOrigin.Begin);
                             Console.WriteLine("----" + offset.ToString("X") + " : " + linkcalc[0].value.ToString("X"));
                             switch (FileSOB.ReadByte())
